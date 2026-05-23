@@ -1,0 +1,664 @@
+================================================================================
+ Tasky — Project Task Tracker
+ Version History / Change Log
+================================================================================
+
+Project   : Tasky  (formerly "You To Do" — see v2.2.2 below)
+Repo path : youtodo/
+Author    : Sky
+Files     : index.html, app.js, style.css,
+            lib/storage.js, lib/state.js, lib/ui-utils.js, lib/theme.js,
+            lib/tags.js, lib/snapshots.js, lib/history.js, lib/stats.js,
+            lib/modals.js, lib/render.js, lib/actions.js,
+            lib/keyboard.js, lib/help.js, lib/backup.js,
+            lib/sync-gist.js, lib/sync.js, lib/settings.js
+
+
+================================================================================
+ v2.3.1   ―   PWA — Progressive Web App                          (this release)
+================================================================================
+
+Theme: install Tasky on your phone, tablet, or desktop. Use it offline.
+
+----------------------------------------------------------------------
+[What landed]
+----------------------------------------------------------------------
+- manifest.webmanifest declaring Tasky as an installable PWA
+- sw.js service worker with cache-first app-shell strategy
+- 6 generated icon PNGs (192/512 standard + maskable variants, 180
+  apple-touch, 32 favicon) — all hand-drawn via Pillow with Tasky's
+  clipboard glyph and accent dot
+- iOS / Android meta tags in <head> (apple-mobile-web-app-capable,
+  status bar style, apple-touch-icon, theme-color, etc.)
+- Mobile-first CSS: ≤540px breakpoint with grid header, 16px input
+  font (silences iOS auto-zoom), 44px touch targets, safe-area-inset
+  support for notches and gesture bars; ≤380px extra compaction;
+  pointer:coarse media query bumps row heights
+- Service-worker registration in app.js (only when served over HTTPS
+  or localhost — file:// keeps working as before, just without
+  offline cache); update detection emits a "Reload to update" toast
+- DEPLOY.md guide with three deployment options:
+  Netlify Drop / GitHub Pages / Cloudflare Pages
+- Service worker GitHub-API requests are NOT cached so sync always
+  fetches fresh data
+
+----------------------------------------------------------------------
+[Files added]
+----------------------------------------------------------------------
++ manifest.webmanifest
++ sw.js
++ icons/_gen_icons.py     (Pillow generator script — kept for re-runs)
++ icons/icon-192.png
++ icons/icon-512.png
++ icons/icon-192-maskable.png
++ icons/icon-512-maskable.png
++ icons/apple-touch-icon.png   (180×180)
++ icons/favicon-32.png
++ DEPLOY.md
+
+----------------------------------------------------------------------
+[Files modified]
+----------------------------------------------------------------------
+~ index.html  — version v2.3.0 → v2.3.1; viewport gets viewport-fit=cover;
+                full PWA <head> meta block (manifest link, theme-color,
+                apple-* tags, icons)
+~ app.js      — service worker registration with update-detection toast
+~ style.css   — appended ~150 lines of mobile RWD: safe-area, ≤540px
+                grid header, ≤380px micro-mode, pointer:coarse hints,
+                @media (display-mode: standalone) for installed PWA
+~ CHANGELOG.txt — this section
+
+
+================================================================================
+ v2.3.0   ―   Cross-device sync (GitHub Gist)
+================================================================================
+
+Theme: keep your data in lock-step across every device you use Tasky on.
+       Optional, opt-in, offline-first, and entirely under your control.
+
+----------------------------------------------------------------------
+[Sync architecture]
+----------------------------------------------------------------------
+- Single SECRET GitHub gist holds the canonical store JSON
+- Each device pulls + merges + pushes
+- Per-todo `updatedAt` decides who wins on conflict (last-write-wins)
+- Tombstones (store.tombstones.{projects,todos}: { id: deletedAt })
+  ensure deletes are honoured across devices and not undone by another
+  device pushing an older copy of the same id
+- Failures never block local edits; offline use is fully supported
+
+----------------------------------------------------------------------
+[Setup flow]
+----------------------------------------------------------------------
+- New ☁️ Sync header button (or `S` shortcut) opens Sync Settings
+- User pastes a GitHub Personal Access Token with `gist` scope
+- Tasky calls /user to verify, then /gists to find an existing
+  tasky.json gist owned by the user; if none, creates a new private one
+- Token + gist id stored ONLY in this browser's localStorage. They
+  never leave your device except for talks to api.github.com.
+
+----------------------------------------------------------------------
+[Auto sync triggers]
+----------------------------------------------------------------------
+- Push: 5 seconds after any local change (debounced)
+- Pull: on window focus, on `online` event, and every 60 seconds
+- Plus a manual "⟳ Sync Now" button in the settings modal
+
+----------------------------------------------------------------------
+[Tombstones — the deletion safety net]
+----------------------------------------------------------------------
+- store.tombstones = { projects: { id: ts }, todos: { id: ts } }
+- Recorded by State.deleteProject / deleteTodo
+- Cleared by State.undoDelete (so undo also propagates)
+- Honoured during merge: if a tombstone is newer than an item's
+  updatedAt, the item is dropped from the merge result
+- Pruned after 90 days to bound localStorage size
+
+----------------------------------------------------------------------
+[Header indicator]
+----------------------------------------------------------------------
+- ☁️ Sync (grey)              — not configured
+- ☁✓ Synced (green)           — last sync OK
+- ☁⟳ Syncing… (blue, spinning) — request in flight
+- ☁⊘ Offline (amber)          — no network
+- ☁⚠ Sync (red)               — last sync failed; tooltip shows error
+
+----------------------------------------------------------------------
+[Files added]
+----------------------------------------------------------------------
++ youtodo/lib/sync-gist.js  (Gist REST client — token, whoami, find,
+                             create, read, write, disconnect)
++ youtodo/lib/sync.js       (orchestrator — pull/push/syncNow, debounce,
+                             merge with tombstones, status pub/sub)
++ youtodo/lib/settings.js   (Sync Settings modal — token entry, status
+                             panel, Sync Now / Pull / Push / Disconnect)
+
+----------------------------------------------------------------------
+[Files modified]
+----------------------------------------------------------------------
+~ youtodo/index.html       — version v2.2.2 → v2.3.0; added 3 new
+                             <script> tags; new ☁️ Sync header button
+~ youtodo/app.js           — call YTD_Settings.attach() and YTD_Sync.init();
+                             subscribe to sync status events to update
+                             the header indicator
+~ youtodo/lib/state.js     — deleteProject / deleteTodo now record
+                             tombstones; undoDelete lifts them
+~ youtodo/lib/storage.js   — emptyStore / normalize ensure
+                             store.tombstones = { projects:{}, todos:{} }
+                             exists on every load (legacy stores get
+                             migrated transparently)
+~ youtodo/lib/backup.js    — mergeStores is now public
+                             (window.YTD_Backup.mergeStores) so sync.js
+                             can reuse it
+~ youtodo/lib/keyboard.js  — `S` (uppercase) opens Sync Settings;
+                             `s` (lowercase) still opens Stats; header
+                             comment updated
+~ youtodo/lib/help.js      — Overview now lists v2.3 highlights;
+                             Usage gets a "Cross-device sync" section;
+                             Shortcuts table adds `S`; What's New gets
+                             a v2.3.0 entry
+~ youtodo/style.css        — appended ~260 lines: sync header button +
+                             status colours + spinning icon, settings
+                             modal sections, table, status pills,
+                             advanced details
+~ youtodo/CHANGELOG.txt    — this section
+
+
+================================================================================
+ v2.2.2   ―   Rebrand: You To Do → Tasky
+================================================================================
+
+- Renamed the product from "You To Do" to **Tasky**. The new name is
+  short, friendly, and the trailing "-sky" winks at the author's handle.
+- All user-facing strings updated:
+    · Page title and header
+    · Welcome / empty-state copy
+    · Help modal Overview heading and What's New heading
+    · Export filenames: tasky-backup-*.json / tasky-export-*.csv /
+      tasky-report-*.md / tasky-snapshot-*.json
+    · Markdown report top heading
+- localStorage keys (youtodo_v2, youtodo_theme, youtodo_snapshot_*,
+  youtodo_last_backup, youtodo_projects) intentionally LEFT UNCHANGED so
+  no existing user data is orphaned by the rename. Internal
+  window.YTD_* namespaces also unchanged for the same reason.
+- Folder name 'youtodo/' kept (paths in shortcuts / bookmarks still work).
+- Help modal v2.2.2 changelog entry added; version badge bumped
+  v2.2.1 → v2.2.2.
+
+[Files modified]
+~ index.html       — title, header h1, version badge
+~ app.js           — comment header
+~ lib/render.js    — Welcome empty-state copy
+~ lib/help.js      — Overview heading, What's New heading, new entry
+~ lib/backup.js    — JSON / CSV / Markdown / snapshot export filenames,
+                     markdown report heading
+~ CHANGELOG.txt    — this section
+
+
+================================================================================
+ v2.2.1   ―   Theme switcher
+================================================================================
+
+- New module lib/theme.js: dark / light / auto theme switcher
+- Loaded synchronously in <head> so the very first paint uses the correct
+  theme — no flash of wrong colour
+- Storage key 'youtodo_theme' (cross-tab sync via 'storage' event)
+- Auto mode listens to matchMedia('(prefers-color-scheme: dark)') and
+  updates live when the OS theme changes
+- Header button cycles Dark → Light → Auto with toast feedback
+- 't' keyboard shortcut also cycles
+- CSS: existing :root variables stayed as the dark default; new
+  :root[data-theme="light"] block re-defines them. Targeted overrides
+  for tone-on-tone surfaces (toasts, code chips, danger chips, today
+  cell gradient, heatmap empty cells, gradient-text headings)
+- Heatmap empty-cell colour is theme-aware (per-render, re-render on
+  theme change)
+- Help / Shortcuts updated; v2.2.1 changelog entry added
+
+[Files added]
++ youtodo/lib/theme.js
+
+[Files modified]
+~ index.html  — theme.js in <head>; theme button in header; v2.2→v2.2.1
+~ app.js      — YTD_Theme.attach(); ytd-theme-change listener triggers
+                stats re-render
+~ lib/keyboard.js — 't'/'T' shortcut
+~ lib/help.js     — Shortcuts table extended; new v2.2.1 changelog entry
+~ lib/render.js   — heatmap empty-cell colour reads data-theme attr
+~ style.css       — light theme variables + ~120 lines of targeted
+                    overrides for surfaces that don't translate via
+                    plain variable swap
+
+
+================================================================================
+ v2.2   ―   Phase C · Visualisation & long-term management
+================================================================================
+
+Theme: time as a first-class dimension. Audit history per task, calendar
+       grid, statistics dashboard, full undo/redo stack, daily auto-snapshot
+       safety net, and merge-mode import.
+
+----------------------------------------------------------------------
+[Activity timeline] per-task audit log
+----------------------------------------------------------------------
+- New field todo.history = [{ at, kind, ...details }]
+- Records: created, completed, reopened, status, priority, dueDate,
+  text, tag-add, tag-remove, subtask-add, subtask-remove, project-move
+- Subtask toggle / quick-add / drag-reorder NOT recorded (too noisy)
+- 200-event cap per task (oldest dropped first)
+- Surfaced via a new "📜 History" tab in the full task editor
+- Reverse chronological with friendly icons + relative formatting
+
+----------------------------------------------------------------------
+[Calendar view] (Cmd+C / 'c' shortcut)
+----------------------------------------------------------------------
+- New module: lib/render.js renderCalendarView()
+- Month grid with 7 weekday columns; first cell starts on Sunday
+- Each cell shows up to 3 task chips (priority dot + truncated text);
+  +N more clickable to expand
+- Today's cell highlighted blue; cells with overdue tasks get red
+  left border
+- Click any task chip → opens its full editor
+- Month nav: ‹ / › buttons, "Today" reset, ← / → keyboard shortcuts
+- New state.calendarMonth ('YYYY-MM' or null=current); state.setCalendarMonth()
+
+----------------------------------------------------------------------
+[Stats view] (Cmd+S / 's' shortcut)
+----------------------------------------------------------------------
+- New module lib/stats.js with pure aggregation functions:
+    activityHeatmap, burndown, projectCompletion, topTags,
+    completionByWeekday, completionByHour, streaks, recentCompletions,
+    staleProjects
+- 4 summary cards on top: 7-day completed · 30-day completed ·
+  current streak · longest streak
+- 7 widgets:
+    1. 13-week activity heatmap (SVG, GitHub-style)
+    2. 30-day burndown line chart (active vs completed)
+    3. Project completion bars (top 8 projects)
+    4. Top tags cloud (clickable chips, larger = more frequent)
+    5. Weekday distribution bars
+    6. Hour-of-day distribution bars
+    7. Stale projects list (top 5 longest idle)
+- All charts hand-rolled SVG; no chart library dependency
+
+----------------------------------------------------------------------
+[Undo / Redo stack] 50-step ring buffer
+----------------------------------------------------------------------
+- New module lib/history.js
+- Strategy: full-store JSON snapshot per change (small data, simple)
+- Stack capacity 50; new change clears redo stack
+- Cmd/Ctrl+Z undoes; Cmd/Ctrl+Shift+Z (or Cmd+Y) redoes
+- Header indicator shows next undo / redo labels
+- Pendant of Phase A's pendingDelete remains as a toast-Undo for the
+  immediate restore-after-delete case
+
+----------------------------------------------------------------------
+[Auto-snapshots] daily rolling 7 days
+----------------------------------------------------------------------
+- New module lib/snapshots.js
+- On boot: take a snapshot if today's not in localStorage
+- Storage key pattern: youtodo_snapshot_YYYY-MM-DD
+- Prune older than 7 days
+- Quota fallback: if localStorage.setItem throws, prune everything
+  except today and retry
+- Surfaced in Backup modal with Restore / Download / Delete per row
+- Restore auto-snapshots current state first (force=true) so a bad
+  restore can be rolled back
+
+----------------------------------------------------------------------
+[Import] now offers Merge mode
+----------------------------------------------------------------------
+- Backup → Import shows a 2-button picker: 🔀 Merge vs ⚠️ Replace
+- Merge:
+    - Same-id projects → merge by-todo using updatedAt (newer wins)
+    - New-id projects → kept wholesale
+    - Project metadata refreshed if incoming is newer
+    - Reports: added / updated / skipped counts via toast
+- Replace remains for legacy / clean-import scenarios
+
+----------------------------------------------------------------------
+[Files added]
+----------------------------------------------------------------------
++ youtodo/lib/snapshots.js     (auto-snapshot rolling buffer)
++ youtodo/lib/history.js       (undo/redo stack)
++ youtodo/lib/stats.js         (aggregations for stats view)
+
+----------------------------------------------------------------------
+[Files modified]
+----------------------------------------------------------------------
+~ youtodo/index.html — version v2.1→v2.2; added 3 new <script> imports;
+    auto-snapshots section in the Backup modal; undo indicator span
+~ youtodo/app.js — call YTD_Snapshots.autoTake() at boot;
+    YTD_History.attach(); update undo indicator in the subscriber
+~ youtodo/lib/storage.js — normalise() ensures todo.history exists;
+    v1 migration adds history: []
+~ youtodo/lib/state.js — view enum extended with 'stats' and 'calendar';
+    state.calendarMonth + setCalendarMonth(); recordHistory() helper +
+    history events emitted on updateTodo() and moveTodo()
+~ youtodo/lib/render.js — renderCalendarView, renderStatsView, plus 8
+    SVG-rendering helpers; rerender() routes new views
+~ youtodo/lib/actions.js — handlers: open-stats, open-calendar,
+    cal-prev, cal-next, cal-today, open-cal-day; parseCalMonth helpers
+~ youtodo/lib/modals.js — full task editor now has Details/History tabs;
+    new renderHistory() helper
+~ youtodo/lib/backup.js — Replace vs Merge picker, mergeStores(),
+    snapshot section in attach() with restore/download/delete
+~ youtodo/lib/keyboard.js — Cmd+Z is now stack undo, Cmd+Shift+Z redo;
+    new shortcuts: c (calendar), s (stats), ←/→ in calendar
+~ youtodo/lib/help.js — overview/usage/shortcuts updated; v2.2
+    changelog entry on top
+~ youtodo/style.css — appended ~470 lines: stats summary + grid +
+    bars + svg labels, calendar grid + cells + items, undo indicator,
+    history rows, snapshots list, import mode picker
+~ youtodo/CHANGELOG.txt — this section
+
+================================================================================
+ v2.1   ―   Phase B · Tags, Subtasks, All Tasks view
+================================================================================
+
+Theme: cross-project visibility + richer per-task structure. Tags get
+       coloured, subtasks get a checklist, and a new All Tasks view
+       flattens everything into smart due-date buckets.
+
+----------------------------------------------------------------------
+[Tags] inline + structured
+----------------------------------------------------------------------
+- New module lib/tags.js with: extract(), parseList(), normalise(),
+  colorFor(), allTags()
+- Type "#urgent" or "#design" inline in any task description on add —
+  tags get auto-extracted, the visible task text gets cleaned
+- Tag colour: deterministic hue from FNV-1a hash of the tag string
+  (saturation/lightness fixed for dark-theme readability)
+- Tags field added to the full task editor (comma- or space-separated)
+- Tag chips clickable everywhere — clicking sets search to "#tag"
+- Dashboard tag cloud: top 14 most-used tags shown as chips with usage
+  count, click to filter
+- Search-box syntax: "#tag" matches the tag exactly; plain text searches
+  all task fields including tags
+
+----------------------------------------------------------------------
+[Subtasks] inline checklist
+----------------------------------------------------------------------
+- Each task in project view shows an expandable subtask checklist below
+  its meta row
+- Add via "+ Add subtask…" input at the bottom (Enter to commit)
+- Click subtask text to inline-edit (Enter saves, Esc cancels)
+- Hover a subtask to reveal the ✕ remove button
+- Toggle subtask done with the checkbox; line-through + dim styling
+- Progress badge "▣ 2/5" on the parent task row; goes green when 100%
+- Subtasks shape: { id, text, done }
+
+----------------------------------------------------------------------
+[All Tasks view] cross-project flatten + smart grouping
+----------------------------------------------------------------------
+- New view (window.YTD_State.state.view === 'all') flattens every task
+  across all projects into a single list, then groups into smart
+  due-date buckets:
+      ⚠️ Overdue · 📅 Today · ☀️ Tomorrow · 📆 This week ·
+      📋 Later   · 🌫 No due date · ✅ Completed
+- Each row shows its parent project as a clickable tag (jumps into the
+  project view)
+- Filter chips at top: All / Active / Completed / Today / Overdue / High pri
+  with live counts
+- Sort within each bucket: priority high → low, then due date ascending
+- Search and tag filter also work in this view
+
+----------------------------------------------------------------------
+[Dashboard] quick chips + tag cloud
+----------------------------------------------------------------------
+- New row of quick filter chips above the projects grid:
+      📥 All Tasks · 📅 Today · ⚠️ Overdue · 🔴 High Priority · ⏳ Active
+  Each chip shows a count and (when clicked) opens All Tasks pre-filtered
+- Overdue chip turns red when count > 0
+- Tag cloud row below the chips — top 14 tags clickable to filter
+
+----------------------------------------------------------------------
+[Keyboard]
+----------------------------------------------------------------------
+- Added: a / A → opens All Tasks view
+- 1-5 filter shortcuts now work in All Tasks view in addition to project view
+
+----------------------------------------------------------------------
+[Files added]
+----------------------------------------------------------------------
++ youtodo/lib/tags.js                (tag extraction + colours)
+
+----------------------------------------------------------------------
+[Files modified]
+----------------------------------------------------------------------
+~ youtodo/index.html — version → v2.1, added <script src="lib/tags.js">
+~ youtodo/lib/render.js — render tag chips + subtask badge + subtask
+    list; new renderAllTasksView with bucket grouping; dashboard chips
+    + tag cloud; tag-aware search filter ("#tag" exact match)
+~ youtodo/lib/actions.js — handlers: add-subtask, toggle-subtask,
+    delete-subtask, edit-subtask-inline, filter-by-tag, open-all-tasks;
+    quick-add and add-todo extract inline #tags via Tags.extract()
+~ youtodo/lib/modals.js — Tags field added to the full task editor
+~ youtodo/lib/state.js — view enum extended with 'all'; filter enum
+    extended with 'high'
+~ youtodo/lib/keyboard.js — 'a'/'A' shortcut, 1-5 work in All Tasks view
+~ youtodo/lib/help.js — overview/usage/shortcuts updated; v2.1
+    changelog entry added on top
+~ youtodo/style.css — appended ~250 lines of styles: tag chips,
+    subtask list, dashboard chips, tag cloud, all-tasks bucket headers,
+    project tag inside all-tasks rows
+~ youtodo/CHANGELOG.txt — this section
+
+================================================================================
+ v2.0   ―   Phase A · Foundation rebuild
+================================================================================
+
+Theme: rebuild the foundation — new data model, modular architecture, and a
+       polished UI layer. Every interaction redesigned to be inline and
+       non-blocking.
+
+----------------------------------------------------------------------
+[Architecture] from monolith to modules
+----------------------------------------------------------------------
+- 800-line `app.js` class is gone. v2 is split into:
+    lib/storage.js    LocalStorage I/O, v1→v2 migration, normalize
+    lib/state.js      central state, all mutations, debounced save, pub/sub
+    lib/ui-utils.js   toast, confirm modal, save indicator, date helpers
+    lib/modals.js     prompt, full-detail todo editor
+    lib/render.js     dashboard + project view rendering (no inline onclick)
+    lib/actions.js    single delegated handler + drag-drop + inline edit
+    lib/keyboard.js   global keyboard shortcuts
+    lib/backup.js     JSON / CSV / Markdown export + import + reminder
+    lib/help.js       Help modal with 5 tabs + What's New
+    app.js            64-line bootstrap
+- All state writes go through `state.js`. Saves are debounced 150ms then
+  hit localStorage. Renderer subscribes to state changes.
+
+----------------------------------------------------------------------
+[Data model] schema v2
+----------------------------------------------------------------------
+- New top-level: { schemaVersion: 2, projects: [...] }
+- Project gets: color (reserved), updatedAt, archivedAt (reserved)
+- Todo gets:    description, status (todo/doing/blocked/done — replaces
+                bool `completed`), tags[], subtasks[], updatedAt,
+                completedAt, order
+- Auto-migrate from v1 on load:
+    - completed:true  -> status:'done', completedAt set
+    - completed:false -> status:'todo'
+    - missing fields normalised with defaults
+    - v1 localStorage key 'youtodo_projects' kept as backup; v2 writes to
+      'youtodo_v2'
+- saveSync() used during migration so a quick reload won't re-migrate.
+
+----------------------------------------------------------------------
+[Inline editing]
+----------------------------------------------------------------------
+- Click a task title → it becomes an <input>, focused & selected
+- Enter saves, Esc cancels, blur saves
+- Click ✏️ button on a task → full editor (description / status / priority
+  / due date)
+- Click priority badge → cycles Low → Med → High → Low
+- Project rename and project title also support inline-style modal prompts.
+
+----------------------------------------------------------------------
+[Drag & drop]
+----------------------------------------------------------------------
+- HTML5 native DnD on .todo-item / .todo-item-mini elements
+- Drop on the same list to reorder
+- Drop on a different project card (dashboard) to move tasks across projects
+  (toast confirmation shown)
+- Visual feedback: dragging item dims, target list gets dashed outline,
+  target project card gets blue border + slight scale up
+
+----------------------------------------------------------------------
+[Toast notifications + Undo]
+----------------------------------------------------------------------
+- Replaces all alert() / confirm() native dialogs
+- Toasts slide in bottom-right; success / warn / error styles
+- Delete actions show a toast with `Undo` button (5s timeout)
+- Cmd+Z / Ctrl+Z also undoes the most recent delete
+- Confirm modal is a custom dialog with Esc/Enter keyboard support
+
+----------------------------------------------------------------------
+[Auto-save indicator]
+----------------------------------------------------------------------
+- New element in the header: "⟳ Saving…" → "✓ Saved" → idle (auto-fades)
+- Reflects state.saveStatus updated by the storage debounce flow.
+
+----------------------------------------------------------------------
+[Keyboard shortcuts]
+----------------------------------------------------------------------
+- N            new project
+- n            focus task input (project view) or first quick-add (dashboard)
+- /            focus the global search box in the header
+- 1 - 5        filter All / Active / Completed / Today / Overdue (project view)
+- ? or H       open / close Help
+- Esc          close any modal · clear search · back to dashboard
+- Cmd/Ctrl+Z   undo last delete
+- Enter        confirm input / add task / save inline edit
+- Cmd+Enter    save in full task editor
+Disabled while typing in inputs (except Esc).
+
+----------------------------------------------------------------------
+[Filters & search]
+----------------------------------------------------------------------
+- Project view filter chips: All / Active / Completed / Today / Overdue
+- Each chip shows live count
+- Global search in the header (1-letter debounce 100ms): matches against
+  task text + description + tags
+
+----------------------------------------------------------------------
+[Smart due-date labels]
+----------------------------------------------------------------------
+- Same-day              -> "Today"
+- Tomorrow              -> "Tomorrow"
+- Yesterday or earlier  -> "Overdue · Aug 5"
+- Within 7 days         -> "Mon, Sep 12"
+- Further out           -> "Sep 30"
+- Overdue rendered red.
+
+----------------------------------------------------------------------
+[Help modal + What's New]
+----------------------------------------------------------------------
+- ❓ Help button in the header (and ? / H shortcut)
+- 5 tabs: Overview, Usage, Shortcuts, Backup, What's New
+- Click the v2.0 version badge → opens What's New directly
+
+----------------------------------------------------------------------
+[Removed inline onclick="..."]
+----------------------------------------------------------------------
+- Single delegated event handler on #mainContent dispatches by data-action
+- Eliminates XSS risk from unescaped data
+- Faster repeated rendering (no per-element listener attaching)
+- No reliance on a global `app` variable
+
+----------------------------------------------------------------------
+[Backup]
+----------------------------------------------------------------------
+- JSON export now writes the full v2 schema with exportedAt timestamp
+- CSV columns expanded: Project, Task, Description, Status, Priority,
+  Due Date, Tags (pipe-joined), Created, Completed, Updated
+- Markdown report shows tags, status, due dates per task
+- Import auto-detects v1 (bare array) vs v2 ({schemaVersion, projects})
+- Reminder toast after 7 days of no backup includes a "Backup" button
+
+----------------------------------------------------------------------
+[Files added]
+----------------------------------------------------------------------
++ youtodo/lib/storage.js
++ youtodo/lib/state.js
++ youtodo/lib/ui-utils.js
++ youtodo/lib/modals.js
++ youtodo/lib/render.js
++ youtodo/lib/actions.js
++ youtodo/lib/keyboard.js
++ youtodo/lib/help.js
++ youtodo/lib/backup.js
++ youtodo/CHANGELOG.txt              (this file)
++ youtodo/_v1_backup/                (v1 source kept for safety)
+
+----------------------------------------------------------------------
+[Files modified]
+----------------------------------------------------------------------
+~ youtodo/index.html — clean header with search + save indicator + help
+                       button + version badge; removed v1 modals; modules
+                       loaded in order; thin bootstrap at the bottom
+~ youtodo/app.js     — was 800-line class, now 64-line bootstrap
+~ youtodo/style.css  — kept v1 styles as base, appended ~600 lines of
+                       v2 styles: toast container, confirm overlay,
+                       help modal, drag visuals, save indicator, etc.
+
+================================================================================
+ v1.0   ―   Initial release
+================================================================================
+
+- Project + task data model with priority and due date
+- Dashboard view with project cards + quick-add per card
+- Per-project todo list with active / completed filter
+- Edit task and rename project via modals
+- JSON / CSV / Markdown export + JSON import
+- Backup reminder after 7 days
+- localStorage persistence (single key 'youtodo_projects')
+- Dark theme
+
+================================================================================
+ Architecture notes
+================================================================================
+
+Module namespaces
+  window.YTD_Storage     load / save / migration
+  window.YTD_State       state, mutations, pub/sub
+  window.YTD_UI          toast, confirm, escapeHtml, formatRelativeDate
+  window.YTD_Prompt      generic single-input modal
+  window.YTD_TodoEditor  full task editor modal
+  window.YTD_Render      dashboard + project view rendering
+  window.YTD_Actions     event delegation + drag-drop + inline edit
+  window.YTD_Keys        global keyboard shortcuts
+  window.YTD_Help        help modal + What's New
+  window.YTD_Backup      JSON/CSV/Markdown export, import, reminder
+
+State shape (in-memory)
+  {
+    store:             { schemaVersion, projects: [...] },
+    view:              'dashboard' | 'project',
+    currentProjectId:  string | null,
+    filter:            'all' | 'active' | 'completed' | 'today' | 'overdue',
+    search:            string,
+    saveStatus:        'idle' | 'saving' | 'saved' | 'error',
+    pendingDelete:     { kind, data, ... } | null   (for undo)
+  }
+
+Project shape
+  { id, name, color?, createdAt, updatedAt, archivedAt?, todos: [...] }
+
+Todo shape
+  {
+    id, text, description, status, priority,
+    tags: [...], subtasks: [...],
+    dueDate, createdAt, updatedAt, completedAt, order
+  }
+
+Standalone, no build step
+- Open index.html via file:// (double-click)
+- Classic <script> tags loaded in dependency order
+- No external dependencies, no network calls, no build pipeline
+- All data in localStorage; export to .json / .csv / .md any time
+
+================================================================================
+ End of CHANGELOG
+================================================================================

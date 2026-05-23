@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=5">
+    <title>Tasky v2.3.1 — Project Task Tracker</title>
+
+    <!-- PWA / iOS metadata -->
+    <link rel="manifest" href="manifest.webmanifest">
+    <meta name="theme-color" content="#0f1419">
+    <meta name="description" content="Lightweight project + task tracker. Cross-device sync via private GitHub gist. Works offline.">
+    <meta name="application-name" content="Tasky">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Tasky">
+    <meta name="mobile-web-app-capable" content="yes">
+    <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+    <link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png">
+    <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
+
+    <link rel="stylesheet" href="style.css">
+    <!-- Theme — load synchronously in <head> to apply data-theme attr
+         before any visible rendering and avoid flash-of-wrong-theme. -->
+    <script src="lib/theme.js"></script>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <div class="header-content">
+                <div class="logo">
+                    <h1>📋 Tasky <span class="version-badge" id="ytd-version-badge" title="What's new">v2.3.1</span></h1>
+                    <p class="subtitle">Project Task Tracker · <span style="opacity:0.55">© Sky</span></p>
+                </div>
+
+                <div class="header-tools">
+                    <input type="text" id="globalSearch" class="global-search" placeholder="🔎  Search tasks…  ( / )" />
+                    <span class="undo-indicator" id="ytd-undo-indicator" title="Undo / Redo (Cmd+Z / Cmd+Shift+Z)"></span>
+                    <span class="save-indicator" id="ytd-save-indicator" title="Auto-save status"></span>
+                </div>
+
+                <div class="header-actions">
+                    <button class="theme-btn" id="ytd-theme-btn" title="Theme: cycle (t)">🌓</button>
+                    <button class="sync-btn" id="ytd-sync-btn" title="Sync settings (S)"><span class="sync-icon" id="ytd-sync-icon">☁️</span><span class="sync-label" id="ytd-sync-label">Sync</span></button>
+                    <button class="help-btn" id="ytd-help-btn" title="Help (?)">❓ Help</button>
+                    <button class="backup-btn" id="backupBtn" title="Backup &amp; Export">💾 Backup</button>
+                    <button class="add-project-btn" id="addProjectBtn" title="New project (N)">+ New Project</button>
+                </div>
+            </div>
+        </header>
+
+        <main id="mainContent">
+            <!-- rendered by lib/render.js -->
+        </main>
+    </div>
+
+    <!-- Backup & Export Modal -->
+    <div class="modal" id="backupModal">
+        <div class="modal-content backup-modal">
+            <h3>💾 Backup &amp; Export</h3>
+            <p class="backup-description">Protect your data by exporting periodically. JSON is the full snapshot; CSV / Markdown are flat reports.</p>
+
+            <div class="backup-options">
+                <div class="backup-option">
+                    <div class="backup-icon">📦</div>
+                    <h4>JSON Backup</h4>
+                    <p>Full snapshot. Save to Drive / Dropbox; restore via Import.</p>
+                    <button class="btn-backup" id="exportJSONBtn">Export JSON</button>
+                </div>
+
+                <div class="backup-option">
+                    <div class="backup-icon">📊</div>
+                    <h4>CSV Export</h4>
+                    <p>Flat row-per-task table. Open in Excel / Sheets.</p>
+                    <button class="btn-backup" id="exportCSVBtn">Export CSV</button>
+                </div>
+
+                <div class="backup-option">
+                    <div class="backup-icon">📝</div>
+                    <h4>Markdown Report</h4>
+                    <p>Pretty report. Great for annual reviews or sharing.</p>
+                    <button class="btn-backup" id="exportMarkdownBtn">Export Markdown</button>
+                </div>
+
+                <div class="backup-option">
+                    <div class="backup-icon">📥</div>
+                    <h4>Import</h4>
+                    <p>Restore a previous JSON backup (auto-migrates v1).</p>
+                    <button class="btn-backup btn-import" id="importBtn">Import Backup</button>
+                </div>
+            </div>
+
+            <div class="backup-tips">
+                <h4>💡 Backup tips</h4>
+                <ul>
+                    <li>Save JSON backups to a cloud folder (Drive / Dropbox / OneDrive)</li>
+                    <li>Export CSV monthly for tracking progress in spreadsheets</li>
+                    <li>Markdown reports are perfect for annual performance reviews</li>
+                    <li>Browser data can be cleared accidentally — back up weekly</li>
+                </ul>
+            </div>
+
+            <h4 style="margin-top: 20px; color: var(--text-primary)">📅 Auto-snapshots (last 7 days)</h4>
+            <p class="backup-description" style="margin-bottom: 12px">Created automatically each day. Restore brings back that day's full state; the current data is auto-snapshotted again before restore so you can roll back.</p>
+            <div id="ytd-snapshots-list" class="ytd-snapshots-list"></div>
+
+            <div class="modal-buttons">
+                <button class="btn-cancel" id="closeBackupBtn">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Help / What's New modal -->
+    <div id="ytd-help-overlay" class="ytd-help-overlay" hidden>
+        <div class="ytd-help-card" role="dialog" aria-modal="true" aria-labelledby="ytd-help-title">
+            <div class="ytd-help-head">
+                <h2 id="ytd-help-title">Help</h2>
+                <button class="ytd-help-close" id="ytd-help-close" title="Close (Esc)">✕</button>
+            </div>
+            <div class="ytd-help-tabs" id="ytd-help-tabs"></div>
+            <div class="ytd-help-body" id="ytd-help-body"></div>
+        </div>
+    </div>
+
+    <!-- Theme — load FIRST to avoid flash of wrong colour -->
+    <!-- (already loaded in <head> for FOUC prevention; nothing here) -->
+
+    <!-- Modules -->
+    <script src="lib/storage.js"></script>
+    <script src="lib/state.js"></script>
+    <script src="lib/ui-utils.js"></script>
+    <script src="lib/tags.js"></script>
+    <script src="lib/snapshots.js"></script>
+    <script src="lib/history.js"></script>
+    <script src="lib/stats.js"></script>
+    <script src="lib/modals.js"></script>
+    <script src="lib/render.js"></script>
+    <script src="lib/actions.js"></script>
+    <script src="lib/keyboard.js"></script>
+    <script src="lib/backup.js"></script>
+    <script src="lib/help.js"></script>
+    <script src="lib/sync-gist.js"></script>
+    <script src="lib/sync.js"></script>
+    <script src="lib/settings.js"></script>
+
+    <!-- Bootstrap -->
+    <script src="app.js"></script>
+</body>
+</html>

@@ -1,0 +1,19 @@
+# OS / editor noise
+.DS_Store
+Thumbs.db
+desktop.ini
+*.swp
+*.swo
+.vscode/
+.idea/
+
+# Python pycache (from icon generator)
+__pycache__/
+*.pyc
+
+# Old v1 source kept locally for safety, no need to publish
+_v1_backup/
+
+# Local-only files
+*.local
+.env
