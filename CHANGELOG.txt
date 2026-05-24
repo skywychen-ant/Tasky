@@ -15,7 +15,41 @@ Files     : index.html, app.js, style.css,
 
 
 ================================================================================
- v2.3.1   ―   PWA — Progressive Web App                          (this release)
+ v2.3.2   ―   Refined PWA icons                                  (this release)
+================================================================================
+
+- Re-rendered all six icon PNGs with depth and polish:
+    · Vertical dark-blue gradient background (#1a2332 → #0a0e14)
+    · Clipboard glyph gets drop shadow + paper highlight strip
+    · Metal clip uses a top-to-bottom shade gradient + handle + shadow
+    · Active task rows: thicker hollow rings, paper-toned bars
+    · Done task: filled accent-blue circle with crisp white tick;
+      bar gets an accent-tinted strike-through
+    · Bottom-right accent dot now has a soft blurred halo + highlight
+- Maskable variants (192 / 512) honour the 80% safe zone strictly so
+  Android's adaptive masks never clip the clipboard
+- Favicon-32 is downsampled (LANCZOS) from a 192px render so the
+  glyph stays sharp at small sizes
+- File sizes grew (192 ≈ 1.3 KB → 6.4 KB) — still tiny but with much
+  more visual fidelity
+- sw.js CACHE_NAME bumped tasky-v2.3.1 → tasky-v2.3.2 so service
+  workers on installed devices fetch the new icons on next launch
+
+[Files modified]
+~ icons/_gen_icons.py       (full rewrite — gradient, shadow, halo)
+~ icons/icon-192.png
+~ icons/icon-512.png
+~ icons/icon-192-maskable.png
+~ icons/icon-512-maskable.png
+~ icons/apple-touch-icon.png
+~ icons/favicon-32.png
+~ index.html                (version v2.3.1 → v2.3.2)
+~ sw.js                     (CACHE_NAME bump)
+~ CHANGELOG.txt             (this section)
+
+
+================================================================================
+ v2.3.1   ―   PWA — Progressive Web App
 ================================================================================
 
 Theme: install Tasky on your phone, tablet, or desktop. Use it offline.

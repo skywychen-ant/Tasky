@@ -9,7 +9,7 @@
 //  Bump CACHE_NAME on every release so stale assets get swept out.
 // ═══════════════════════════════════════════════════════
 
-const CACHE_NAME = 'tasky-v2.3.1';
+const CACHE_NAME = 'tasky-v2.3.2';
 
 // Files that make up the app shell. Listed explicitly so we know we have
 // a complete offline copy. Paths are relative to the service worker scope.
